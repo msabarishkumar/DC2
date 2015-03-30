@@ -36,7 +36,6 @@ public class Leader extends Process {
 		new Scout(env, new ProcessId("scout:" + me + ":" + ballot_number),
 			me, acceptors, ballot_number, logFolder, logger);
 		
-
 		for (;;) {
 			PaxosMessage msg = getNextMessage();
 			if (pingPongSet && !isPingingSeniorLeader) {
@@ -47,21 +46,11 @@ public class Leader extends Process {
 				ProposeMessage m = (ProposeMessage) msg;
 				logger.info(me + " || Received: " + m.command.toString());
 				
-				// Changes for the read-only command.  We want to execute a proposal
-				// if there exists only a dummy command for this slot.
-				boolean letItRun = false;
-				Command oldCmd = proposals.get(m.slot_number);
-				if (oldCmd != null && oldCmd.client == null) {
-					letItRun = true;
-				}
-				
-				if (letItRun || !proposals.containsKey(m.slot_number)) {
-					proposals.put(m.slot_number, m.command);
-					if (active) {
-						new Commander(env,
-							new ProcessId("commander:" + me + ":" + ballot_number + ":" + m.slot_number),
-							me, acceptors, replicas, ballot_number, m.slot_number, m.command, logFolder, logger);
-					}
+				proposals.put(m.slot_number, m.command);
+				if (active) {
+					new Commander(env,
+						new ProcessId("commander:" + me + ":" + ballot_number + ":" + m.slot_number),
+						me, acceptors, replicas, ballot_number, m.slot_number, m.command, logFolder, logger);
 				}
 			} else if (msg instanceof RequestHeartBeat) {
 				logger.info(me + " || Received: " + msg.toString());
@@ -99,23 +88,12 @@ public class Leader extends Process {
 						BallotNumber bn = max.get(pv.slot_number);
 						if (bn == null || bn.compareTo(pv.ballot_number) < 0) {
 							max.put(pv.slot_number, pv.ballot_number);
-							// This is holder for a read-only command.
-							if (pv.command.client == null) {
-									DecisionMessage dMsg = new DecisionMessage(me, pv.slot_number, new Command(pv.command));
-									for (ProcessId repl: replicas) {
-										logger.info("Replying for read-only command to: replica_" + repl);
-										sendMessage(repl, dMsg);
-									}
-							}
-							proposals.put(pv.slot_number, pv.command);
+	       					proposals.put(pv.slot_number, pv.command);
 						}
 					}
 					
 					for (int sn : proposals.keySet()) {
 						Command x = proposals.get(sn);
-						// This check is there, because you have received a command
-						// which is nothing but a dummy command for the read only
-						// purposes.
 						if (x.client == null) {
 							continue;
 						}
